@@ -229,4 +229,41 @@ router.get(
   })
 );
 
+// балансы и отчёт по кассам (Душанбе/Хучанд): без from/to — текущий баланс, с ними — движение за период
+router.get(
+  '/offices',
+  asyncHandler(async (req, res) => {
+    const { from, to } = req.query;
+    if ((from && !to) || (!from && to)) {
+      return res.status(400).json({ error: 'from и to должны передаваться вместе' });
+    }
+
+    const report = await reports.getOfficesReport({ from, to });
+
+    if (req.query.format === 'xlsx') {
+      const officeLabel = { dushanbe: 'Душанбе', khujand: 'Хучанд' };
+      return sendExcel(res, 'offices.xlsx', [
+        {
+          name: 'Кассы',
+          rows: [
+            ...report.offices.map((o) => ({
+              Касса: officeLabel[o.office] || o.office,
+              'Приход (USD)': o.paidUsd,
+              'Расход (USD)': o.expensesUsd,
+              'Баланс (USD)': o.balanceUsd,
+            })),
+            {
+              Касса: 'ИТОГО',
+              'Приход (USD)': '',
+              'Расход (USD)': '',
+              'Баланс (USD)': report.totalBalanceUsd,
+            },
+          ],
+        },
+      ]);
+    }
+    res.json(report);
+  })
+);
+
 module.exports = router;

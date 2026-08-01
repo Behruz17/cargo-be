@@ -1,4 +1,5 @@
 const CURRENCIES = ['USD', 'TJS'];
+const OFFICES = ['dushanbe', 'khujand'];
 
 // раздел 11 ТЗ: все внутренние расчёты — в USD. exchange_rate = TJS за 1 USD.
 function computeAmountUsd(amount, currency, exchangeRate) {
@@ -6,4 +7,4 @@ function computeAmountUsd(amount, currency, exchangeRate) {
   return Math.round((Number(amount) / Number(exchangeRate)) * 100) / 100;
 }
 
-module.exports = { CURRENCIES, computeAmountUsd };
+module.exports = { CURRENCIES, OFFICES, computeAmountUsd };

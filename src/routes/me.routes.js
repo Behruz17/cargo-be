@@ -19,7 +19,7 @@ router.get(
   '/payments',
   asyncHandler(async (req, res) => {
     const [rows] = await pool.query(
-      `SELECT id, payment_date, amount, currency, exchange_rate, amount_usd, cargo_id, comment
+      `SELECT id, payment_date, amount, currency, exchange_rate, amount_usd, cargo_id, office, comment
        FROM payments WHERE client_id = ? AND status = 1 ORDER BY payment_date DESC`,
       [req.user.clientId]
     );

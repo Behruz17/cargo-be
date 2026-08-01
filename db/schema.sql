@@ -141,6 +141,7 @@ CREATE TABLE payments (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   client_id INT UNSIGNED NOT NULL,
   cargo_id INT UNSIGNED NULL,
+  office ENUM('dushanbe', 'khujand') NOT NULL,
   payment_date DATE NOT NULL,
   amount DECIMAL(12,2) NOT NULL,
   currency ENUM('USD', 'TJS') NOT NULL,
@@ -156,13 +157,15 @@ CREATE TABLE payments (
   CONSTRAINT fk_payments_user FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
   INDEX idx_payments_client (client_id),
   INDEX idx_payments_date (payment_date),
-  INDEX idx_payments_status (status)
+  INDEX idx_payments_status (status),
+  INDEX idx_payments_office (office)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 8. Expenses (расходы по рейсу или общие расходы бизнеса)
 CREATE TABLE expenses (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   shipment_id INT UNSIGNED NULL,
+  office ENUM('dushanbe', 'khujand') NOT NULL,
   expense_type_id INT UNSIGNED NOT NULL,
   amount DECIMAL(12,2) NOT NULL,
   currency ENUM('USD', 'TJS') NOT NULL,
@@ -177,7 +180,8 @@ CREATE TABLE expenses (
   CONSTRAINT fk_expenses_type FOREIGN KEY (expense_type_id) REFERENCES expense_types(id) ON DELETE RESTRICT,
   CONSTRAINT fk_expenses_user FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
   INDEX idx_expenses_shipment (shipment_id),
-  INDEX idx_expenses_status (status)
+  INDEX idx_expenses_status (status),
+  INDEX idx_expenses_office (office)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 9. Activity log (журнал действий) — append-only, never soft-deleted

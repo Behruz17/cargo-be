@@ -2,7 +2,7 @@ const { Router } = require('express');
 const pool = require('../config/db');
 const asyncHandler = require('../utils/asyncHandler');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { CURRENCIES, computeAmountUsd } = require('../utils/currency');
+const { CURRENCIES, OFFICES, computeAmountUsd } = require('../utils/currency');
 const { parsePagination, parseSort, buildListResponse } = require('../utils/queryOptions');
 const { withTransaction } = require('../utils/transaction');
 const activityLogger = require('../middleware/activityLogger');
@@ -27,12 +27,13 @@ const SELECT_WITH_JOIN = `
 const SELECT_LIST = SELECT_WITH_JOIN.replace('e.*,', 'e.*, COUNT(*) OVER() AS total_count,');
 
 function validateExpenseBody(body) {
-  const { expense_type_id, amount, currency, exchange_rate } = body;
-  if (!expense_type_id || amount == null || !currency) {
-    return 'expense_type_id, amount и currency обязательны';
+  const { expense_type_id, amount, currency, exchange_rate, office } = body;
+  if (!expense_type_id || amount == null || !currency || !office) {
+    return 'expense_type_id, amount, currency и office обязательны';
   }
   if (Number(amount) <= 0) return 'amount должен быть положительным';
   if (!CURRENCIES.includes(currency)) return `currency должен быть одним из: ${CURRENCIES.join(', ')}`;
+  if (!OFFICES.includes(office)) return `office должен быть одним из: ${OFFICES.join(', ')}`;
   if (currency === 'TJS' && !(Number(exchange_rate) > 0)) {
     return 'exchange_rate обязателен и должен быть положительным для TJS';
   }
@@ -84,7 +85,7 @@ router.post(
     const error = validateExpenseBody(req.body);
     if (error) return res.status(400).json({ error });
 
-    const { shipment_id, expense_type_id, amount, currency, comment } = req.body;
+    const { shipment_id, office, expense_type_id, amount, currency, comment } = req.body;
     const exchangeRate = currency === 'USD' ? 1 : Number(req.body.exchange_rate);
     const amountUsd = computeAmountUsd(amount, currency, exchangeRate);
 
@@ -92,10 +93,11 @@ router.post(
       const row = await withTransaction(async (conn) => {
         const [result] = await conn.query(
           `INSERT INTO expenses
-             (shipment_id, expense_type_id, amount, currency, exchange_rate, amount_usd, comment, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+             (shipment_id, office, expense_type_id, amount, currency, exchange_rate, amount_usd, comment, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             shipment_id ?? null,
+            office,
             expense_type_id,
             amount,
             currency,
@@ -126,7 +128,7 @@ router.put(
     const error = validateExpenseBody(req.body);
     if (error) return res.status(400).json({ error });
 
-    const { shipment_id, expense_type_id, amount, currency, comment } = req.body;
+    const { shipment_id, office, expense_type_id, amount, currency, comment } = req.body;
     const exchangeRate = currency === 'USD' ? 1 : Number(req.body.exchange_rate);
     const amountUsd = computeAmountUsd(amount, currency, exchangeRate);
 
@@ -134,10 +136,10 @@ router.put(
       const row = await withTransaction(async (conn) => {
         const [result] = await conn.query(
           `UPDATE expenses SET
-             shipment_id = ?, expense_type_id = ?, amount = ?, currency = ?,
+             shipment_id = ?, office = ?, expense_type_id = ?, amount = ?, currency = ?,
              exchange_rate = ?, amount_usd = ?, comment = ?
            WHERE id = ? AND status = 1`,
-          [shipment_id ?? null, expense_type_id, amount, currency, exchangeRate, amountUsd, comment ?? null, req.params.id]
+          [shipment_id ?? null, office, expense_type_id, amount, currency, exchangeRate, amountUsd, comment ?? null, req.params.id]
         );
         if (result.affectedRows === 0) return null;
         const [rows] = await conn.query(`${SELECT_WITH_JOIN} WHERE e.id = ?`, [req.params.id]);

@@ -2,7 +2,7 @@ const { Router } = require('express');
 const pool = require('../config/db');
 const asyncHandler = require('../utils/asyncHandler');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { CURRENCIES, computeAmountUsd } = require('../utils/currency');
+const { CURRENCIES, OFFICES, computeAmountUsd } = require('../utils/currency');
 const { parsePagination, parseSort, buildListResponse } = require('../utils/queryOptions');
 const { withTransaction } = require('../utils/transaction');
 const activityLogger = require('../middleware/activityLogger');
@@ -26,12 +26,13 @@ const SELECT_WITH_JOIN = `
 const SELECT_LIST = SELECT_WITH_JOIN.replace('p.*,', 'p.*, COUNT(*) OVER() AS total_count,');
 
 function validatePaymentBody(body) {
-  const { client_id, payment_date, amount, currency, exchange_rate } = body;
-  if (!client_id || !payment_date || amount == null || !currency) {
-    return 'client_id, payment_date, amount и currency обязательны';
+  const { client_id, payment_date, amount, currency, exchange_rate, office } = body;
+  if (!client_id || !payment_date || amount == null || !currency || !office) {
+    return 'client_id, payment_date, amount, currency и office обязательны';
   }
   if (Number(amount) <= 0) return 'amount должен быть положительным';
   if (!CURRENCIES.includes(currency)) return `currency должен быть одним из: ${CURRENCIES.join(', ')}`;
+  if (!OFFICES.includes(office)) return `office должен быть одним из: ${OFFICES.join(', ')}`;
   if (currency === 'TJS' && !(Number(exchange_rate) > 0)) {
     return 'exchange_rate обязателен и должен быть положительным для TJS';
   }
@@ -81,7 +82,7 @@ router.post(
     const error = validatePaymentBody(req.body);
     if (error) return res.status(400).json({ error });
 
-    const { client_id, cargo_id, payment_date, amount, currency, comment } = req.body;
+    const { client_id, cargo_id, office, payment_date, amount, currency, comment } = req.body;
     const exchangeRate = currency === 'USD' ? 1 : Number(req.body.exchange_rate);
     const amountUsd = computeAmountUsd(amount, currency, exchangeRate);
 
@@ -89,11 +90,12 @@ router.post(
       const row = await withTransaction(async (conn) => {
         const [result] = await conn.query(
           `INSERT INTO payments
-             (client_id, cargo_id, payment_date, amount, currency, exchange_rate, amount_usd, comment, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             (client_id, cargo_id, office, payment_date, amount, currency, exchange_rate, amount_usd, comment, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             client_id,
             cargo_id ?? null,
+            office,
             payment_date,
             amount,
             currency,
@@ -124,7 +126,7 @@ router.put(
     const error = validatePaymentBody(req.body);
     if (error) return res.status(400).json({ error });
 
-    const { client_id, cargo_id, payment_date, amount, currency, comment } = req.body;
+    const { client_id, cargo_id, office, payment_date, amount, currency, comment } = req.body;
     const exchangeRate = currency === 'USD' ? 1 : Number(req.body.exchange_rate);
     const amountUsd = computeAmountUsd(amount, currency, exchangeRate);
 
@@ -132,10 +134,10 @@ router.put(
       const row = await withTransaction(async (conn) => {
         const [result] = await conn.query(
           `UPDATE payments SET
-             client_id = ?, cargo_id = ?, payment_date = ?, amount = ?, currency = ?,
+             client_id = ?, cargo_id = ?, office = ?, payment_date = ?, amount = ?, currency = ?,
              exchange_rate = ?, amount_usd = ?, comment = ?
            WHERE id = ? AND status = 1`,
-          [client_id, cargo_id ?? null, payment_date, amount, currency, exchangeRate, amountUsd, comment ?? null, req.params.id]
+          [client_id, cargo_id ?? null, office, payment_date, amount, currency, exchangeRate, amountUsd, comment ?? null, req.params.id]
         );
         if (result.affectedRows === 0) return null;
         const [rows] = await conn.query(`${SELECT_WITH_JOIN} WHERE p.id = ?`, [req.params.id]);

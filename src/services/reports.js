@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { OFFICES } = require('../utils/currency');
 const { getClientCargoHistory, getClientStats } = require('./clientHistory');
 
 async function getClientReport(clientId) {
@@ -155,6 +156,55 @@ async function getExpensesReport({ from, to, shipmentId, scope }) {
   return { byType: rows, totalUsd: Math.round(totalUsd * 100) / 100 };
 }
 
+// баланс кассы = сумма оплат, принятых через неё, минус сумма расходов, оплаченных из неё;
+// без from/to — баланс за всё время (сколько сейчас должно быть в кассе),
+// с from/to — движение (приход/расход) за период.
+async function getOfficesReport({ from, to } = {}) {
+  const paymentConditions = ['status = 1'];
+  const expenseConditions = ['status = 1'];
+  const paymentParams = [];
+  const expenseParams = [];
+
+  if (from && to) {
+    paymentConditions.push('payment_date BETWEEN ? AND ?');
+    paymentParams.push(from, to);
+    expenseConditions.push('DATE(created_at) BETWEEN ? AND ?');
+    expenseParams.push(from, to);
+  }
+
+  const [paymentRows] = await pool.query(
+    `SELECT office, SUM(amount_usd) AS paid_usd
+     FROM payments WHERE ${paymentConditions.join(' AND ')} GROUP BY office`,
+    paymentParams
+  );
+  const [expenseRows] = await pool.query(
+    `SELECT office, SUM(amount_usd) AS expenses_usd
+     FROM expenses WHERE ${expenseConditions.join(' AND ')} GROUP BY office`,
+    expenseParams
+  );
+
+  const paidByOffice = Object.fromEntries(paymentRows.map((r) => [r.office, Number(r.paid_usd)]));
+  const expensesByOffice = Object.fromEntries(expenseRows.map((r) => [r.office, Number(r.expenses_usd)]));
+
+  const offices = OFFICES.map((office) => {
+    const paidUsd = paidByOffice[office] || 0;
+    const expensesUsd = expensesByOffice[office] || 0;
+    return {
+      office,
+      paidUsd: Math.round(paidUsd * 100) / 100,
+      expensesUsd: Math.round(expensesUsd * 100) / 100,
+      balanceUsd: Math.round((paidUsd - expensesUsd) * 100) / 100,
+    };
+  });
+
+  return {
+    from: from || null,
+    to: to || null,
+    offices,
+    totalBalanceUsd: Math.round(offices.reduce((sum, o) => sum + o.balanceUsd, 0) * 100) / 100,
+  };
+}
+
 module.exports = {
   getClientReport,
   getShipmentReport,
@@ -162,4 +212,5 @@ module.exports = {
   getPeriodReport,
   getDebtReport,
   getExpensesReport,
+  getOfficesReport,
 };

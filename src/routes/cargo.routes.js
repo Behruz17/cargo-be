@@ -9,7 +9,7 @@ const activityLogger = require('../middleware/activityLogger');
 const router = Router();
 router.use(activityLogger('cargo'));
 
-const WEIGHT_THRESHOLD_KG = 200;
+const DENSITY_THRESHOLD_KG_M3 = 200;
 const SORT_MAP = {
   id: 'c.id',
   added_date: 'c.added_date',
@@ -19,9 +19,10 @@ const SORT_MAP = {
   final_cost: 'c.final_cost',
 };
 
-// раздел 8 ТЗ: вес >= 200кг — тариф по кг, иначе — по объёму
+// раздел 8 ТЗ: плотность = вес / объём; плотность >= 200 кг/м³ — тариф по кг, иначе — по объёму
 function calculateCargoCost(weightKg, volumeM3, rate) {
-  const calculation_type = weightKg >= WEIGHT_THRESHOLD_KG ? 'by_weight' : 'by_volume';
+  const densityKgM3 = weightKg / volumeM3;
+  const calculation_type = densityKgM3 >= DENSITY_THRESHOLD_KG_M3 ? 'by_weight' : 'by_volume';
   const basis = calculation_type === 'by_weight' ? weightKg : volumeM3;
   const calculated_cost = Math.round(basis * rate * 100) / 100;
   return { calculation_type, calculated_cost };
