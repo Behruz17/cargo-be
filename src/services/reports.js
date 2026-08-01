@@ -25,7 +25,7 @@ async function getShipmentReport(shipmentId) {
   if (!shipmentRows[0]) return null;
 
   const [cargoRows] = await pool.query(
-    `SELECT c.id, c.added_date, c.weight_kg, c.volume_m3, c.calculation_type, c.rate, c.final_cost,
+    `SELECT c.id, c.added_date, c.weight_kg, c.volume_m3, c.places, c.calculation_type, c.rate, c.final_cost,
             cl.code AS client_code, cl.full_name AS client_full_name
      FROM cargo c
      JOIN clients cl ON cl.id = c.client_id

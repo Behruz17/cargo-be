@@ -5,7 +5,7 @@ const pool = require('../config/db');
 // only (see getClientStats), not toward any specific shipment line.
 async function getClientCargoHistory(clientId) {
   const [rows] = await pool.query(
-    `SELECT c.id, c.added_date, c.weight_kg, c.volume_m3, c.final_cost,
+    `SELECT c.id, c.added_date, c.weight_kg, c.volume_m3, c.places, c.final_cost,
             s.id AS shipment_id, s.shipment_number, s.departure_date, s.arrival_date,
             w.name AS warehouse_name,
             COALESCE(pd.paid_usd, 0) AS paid_usd,
@@ -20,7 +20,14 @@ async function getClientCargoHistory(clientId) {
      ORDER BY c.added_date DESC`,
     [clientId]
   );
-  return rows;
+  return rows.map((row) => ({
+    ...row,
+    weight_kg: Number(row.weight_kg),
+    volume_m3: Number(row.volume_m3),
+    final_cost: Number(row.final_cost),
+    paid_usd: Number(row.paid_usd),
+    debt_usd: Number(row.debt_usd),
+  }));
 }
 
 async function getClientStats(clientId) {

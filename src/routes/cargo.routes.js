@@ -15,6 +15,7 @@ const SORT_MAP = {
   added_date: 'c.added_date',
   weight_kg: 'c.weight_kg',
   volume_m3: 'c.volume_m3',
+  places: 'c.places',
   final_cost: 'c.final_cost',
 };
 
@@ -83,16 +84,18 @@ router.post(
   requireAuth,
   requireRole('admin', 'manager'),
   asyncHandler(async (req, res) => {
-    const { shipment_id, client_id, added_date, store, description, weight_kg, volume_m3, rate, comment } =
+    const { shipment_id, client_id, added_date, description, weight_kg, volume_m3, places, rate, comment } =
       req.body;
 
-    if (!shipment_id || !client_id || weight_kg == null || volume_m3 == null || rate == null) {
+    if (!shipment_id || !client_id || weight_kg == null || volume_m3 == null || places == null || rate == null) {
       return res
         .status(400)
-        .json({ error: 'shipment_id, client_id, weight_kg, volume_m3 и rate обязательны' });
+        .json({ error: 'shipment_id, client_id, weight_kg, volume_m3, places и rate обязательны' });
     }
-    if (weight_kg <= 0 || volume_m3 <= 0 || rate <= 0) {
-      return res.status(400).json({ error: 'weight_kg, volume_m3 и rate должны быть положительными' });
+    if (weight_kg <= 0 || volume_m3 <= 0 || rate <= 0 || !Number.isInteger(Number(places)) || places <= 0) {
+      return res
+        .status(400)
+        .json({ error: 'weight_kg, volume_m3 и rate должны быть положительными, places — целое положительное' });
     }
 
     const { calculation_type, calculated_cost } = calculateCargoCost(
@@ -105,17 +108,17 @@ router.post(
       const row = await withTransaction(async (conn) => {
         const [result] = await conn.query(
           `INSERT INTO cargo
-             (shipment_id, client_id, added_date, store, description, weight_kg, volume_m3,
+             (shipment_id, client_id, added_date, description, weight_kg, volume_m3, places,
               calculation_type, rate, calculated_cost, final_cost, comment)
            VALUES (?, ?, COALESCE(?, CURDATE()), ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             shipment_id,
             client_id,
             added_date ?? null,
-            store ?? null,
             description ?? null,
             weight_kg,
             volume_m3,
+            places,
             calculation_type,
             rate,
             calculated_cost,
@@ -142,14 +145,16 @@ router.put(
   requireAuth,
   requireRole('admin'),
   asyncHandler(async (req, res) => {
-    const { client_id, added_date, store, description, weight_kg, volume_m3, rate, final_cost, comment } =
+    const { client_id, added_date, description, weight_kg, volume_m3, places, rate, final_cost, comment } =
       req.body;
 
-    if (!client_id || weight_kg == null || volume_m3 == null || rate == null) {
-      return res.status(400).json({ error: 'client_id, weight_kg, volume_m3 и rate обязательны' });
+    if (!client_id || weight_kg == null || volume_m3 == null || places == null || rate == null) {
+      return res.status(400).json({ error: 'client_id, weight_kg, volume_m3, places и rate обязательны' });
     }
-    if (weight_kg <= 0 || volume_m3 <= 0 || rate <= 0) {
-      return res.status(400).json({ error: 'weight_kg, volume_m3 и rate должны быть положительными' });
+    if (weight_kg <= 0 || volume_m3 <= 0 || rate <= 0 || !Number.isInteger(Number(places)) || places <= 0) {
+      return res
+        .status(400)
+        .json({ error: 'weight_kg, volume_m3 и rate должны быть положительными, places — целое положительное' });
     }
 
     const { calculation_type, calculated_cost } = calculateCargoCost(
@@ -164,17 +169,17 @@ router.put(
       const row = await withTransaction(async (conn) => {
         const [result] = await conn.query(
           `UPDATE cargo SET
-             client_id = ?, added_date = COALESCE(?, added_date), store = ?, description = ?,
-             weight_kg = ?, volume_m3 = ?, calculation_type = ?, rate = ?,
+             client_id = ?, added_date = COALESCE(?, added_date), description = ?,
+             weight_kg = ?, volume_m3 = ?, places = ?, calculation_type = ?, rate = ?,
              calculated_cost = ?, final_cost = ?, is_cost_adjusted = ?, comment = ?
            WHERE id = ? AND status = 1`,
           [
             client_id,
             added_date ?? null,
-            store ?? null,
             description ?? null,
             weight_kg,
             volume_m3,
+            places,
             calculation_type,
             rate,
             calculated_cost,
