@@ -4,7 +4,7 @@ const { jwt: jwtConfig } = require('../config/env');
 function requireAuth(req, res, next) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
   }
 
   const token = header.slice('Bearer '.length);
@@ -12,14 +12,14 @@ function requireAuth(req, res, next) {
     req.user = jwt.verify(token, jwtConfig.secret);
     next();
   } catch (err) {
-    res.status(401).json({ error: 'Invalid or expired token' });
+    res.status(401).json({ error: 'Invalid or expired token', code: 'INVALID_TOKEN' });
   }
 }
 
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Forbidden' });
+      return res.status(403).json({ error: 'Forbidden', code: 'FORBIDDEN' });
     }
     next();
   };

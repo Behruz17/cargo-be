@@ -15,10 +15,14 @@ const SORT_MAP = { id: 'id', username: 'username', role: 'role' };
 
 function validateUserBody(body, { requirePassword }) {
   const { username, full_name, role, client_id, password } = body;
-  if (!username || !full_name || !role) return 'username, full_name и role обязательны';
-  if (!ROLES.includes(role)) return `role должен быть одним из: ${ROLES.join(', ')}`;
-  if (role === 'client' && !client_id) return 'client_id обязателен для роли client';
-  if (requirePassword && !password) return 'password обязателен';
+  if (!username || !full_name || !role) {
+    return { message: 'username, full_name и role обязательны', code: 'USER_FIELDS_REQUIRED' };
+  }
+  if (!ROLES.includes(role)) return { message: `role должен быть одним из: ${ROLES.join(', ')}`, code: 'ROLE_INVALID' };
+  if (role === 'client' && !client_id) {
+    return { message: 'client_id обязателен для роли client', code: 'USER_CLIENT_ID_REQUIRED' };
+  }
+  if (requirePassword && !password) return { message: 'password обязателен', code: 'PASSWORD_REQUIRED' };
   return null;
 }
 
@@ -46,7 +50,7 @@ router.get(
     const [rows] = await pool.query(`SELECT ${SAFE_COLUMNS} FROM users WHERE id = ? AND status = 1`, [
       req.params.id,
     ]);
-    if (!rows[0]) return res.status(404).json({ error: 'Пользователь не найден' });
+    if (!rows[0]) return res.status(404).json({ error: 'Пользователь не найден', code: 'USER_NOT_FOUND' });
     res.json(rows[0]);
   })
 );
@@ -57,7 +61,7 @@ router.post(
   requireRole('admin'),
   asyncHandler(async (req, res) => {
     const error = validateUserBody(req.body, { requirePassword: true });
-    if (error) return res.status(400).json({ error });
+    if (error) return res.status(400).json({ error: error.message, code: error.code });
 
     const { username, password, full_name, role, client_id, phone } = req.body;
     const passwordHash = await bcrypt.hash(password, 10);
@@ -70,9 +74,9 @@ router.post(
       const [rows] = await pool.query(`SELECT ${SAFE_COLUMNS} FROM users WHERE id = ?`, [result.insertId]);
       res.status(201).json(rows[0]);
     } catch (err) {
-      if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'username уже занят' });
+      if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'username уже занят', code: 'USERNAME_TAKEN' });
       if (err.code === 'ER_NO_REFERENCED_ROW_2') {
-        return res.status(400).json({ error: 'Получатель не найден' });
+        return res.status(400).json({ error: 'Получатель не найден', code: 'CLIENT_NOT_FOUND' });
       }
       throw err;
     }
@@ -85,7 +89,7 @@ router.put(
   requireRole('admin'),
   asyncHandler(async (req, res) => {
     const error = validateUserBody(req.body, { requirePassword: false });
-    if (error) return res.status(400).json({ error });
+    if (error) return res.status(400).json({ error: error.message, code: error.code });
 
     const { username, password, full_name, role, client_id, phone } = req.body;
     const resolvedClientId = role === 'client' ? client_id : null;
@@ -102,14 +106,14 @@ router.put(
         : [username, full_name, role, resolvedClientId, phone ?? null, req.params.id];
 
       const [result] = await pool.query(sql, params);
-      if (result.affectedRows === 0) return res.status(404).json({ error: 'Пользователь не найден' });
+      if (result.affectedRows === 0) return res.status(404).json({ error: 'Пользователь не найден', code: 'USER_NOT_FOUND' });
 
       const [rows] = await pool.query(`SELECT ${SAFE_COLUMNS} FROM users WHERE id = ?`, [req.params.id]);
       res.json(rows[0]);
     } catch (err) {
-      if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'username уже занят' });
+      if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'username уже занят', code: 'USERNAME_TAKEN' });
       if (err.code === 'ER_NO_REFERENCED_ROW_2') {
-        return res.status(400).json({ error: 'Получатель не найден' });
+        return res.status(400).json({ error: 'Получатель не найден', code: 'CLIENT_NOT_FOUND' });
       }
       throw err;
     }
@@ -124,7 +128,7 @@ router.delete(
     const [result] = await pool.query('UPDATE users SET status = 0 WHERE id = ? AND status = 1', [
       req.params.id,
     ]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Пользователь не найден' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Пользователь не найден', code: 'USER_NOT_FOUND' });
     res.status(204).send();
   })
 );

@@ -15,7 +15,7 @@ router.get(
       'SELECT id, shipment_number FROM shipments WHERE id = ? AND is_active = 1',
       [req.params.id]
     );
-    if (!shipmentRows[0]) return res.status(404).json({ error: 'Рейс не найден' });
+    if (!shipmentRows[0]) return res.status(404).json({ error: 'Рейс не найден', code: 'SHIPMENT_NOT_FOUND' });
 
     const [[revenueRow]] = await pool.query(
       'SELECT COALESCE(SUM(final_cost), 0) AS revenue_usd FROM cargo WHERE shipment_id = ? AND status = 1',
@@ -45,7 +45,7 @@ router.get(
   requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { from, to } = req.query;
-    if (!from || !to) return res.status(400).json({ error: 'from и to обязательны (YYYY-MM-DD)' });
+    if (!from || !to) return res.status(400).json({ error: 'from и to обязательны (YYYY-MM-DD)', code: 'FROM_TO_REQUIRED' });
 
     const [[revenueRow]] = await pool.query(
       'SELECT COALESCE(SUM(final_cost), 0) AS revenue_usd FROM cargo WHERE status = 1 AND added_date BETWEEN ? AND ?',

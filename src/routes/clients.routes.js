@@ -52,7 +52,7 @@ router.get(
     const [rows] = await pool.query('SELECT * FROM clients WHERE id = ? AND status = 1', [
       req.params.id,
     ]);
-    if (!rows[0]) return res.status(404).json({ error: 'Получатель не найден' });
+    if (!rows[0]) return res.status(404).json({ error: 'Получатель не найден', code: 'CLIENT_NOT_FOUND' });
     res.json(rows[0]);
   })
 );
@@ -66,7 +66,7 @@ router.get(
     const [clientRows] = await pool.query('SELECT id, code, full_name FROM clients WHERE id = ? AND status = 1', [
       req.params.id,
     ]);
-    if (!clientRows[0]) return res.status(404).json({ error: 'Получатель не найден' });
+    if (!clientRows[0]) return res.status(404).json({ error: 'Получатель не найден', code: 'CLIENT_NOT_FOUND' });
 
     const [shipments, stats] = await Promise.all([
       getClientCargoHistory(req.params.id),
@@ -85,7 +85,7 @@ router.post(
     const { full_name, phone, address, comment, registration_date, opening_balance_usd } = req.body;
     let { code } = req.body;
     if (!full_name || !phone) {
-      return res.status(400).json({ error: 'full_name и phone обязательны' });
+      return res.status(400).json({ error: 'full_name и phone обязательны', code: 'CLIENT_NAME_PHONE_REQUIRED' });
     }
     if (!code) code = await nextClientCode();
 
@@ -107,7 +107,7 @@ router.post(
       res.status(201).json(rows[0]);
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(409).json({ error: 'Код получателя уже используется' });
+        return res.status(409).json({ error: 'Код получателя уже используется', code: 'CLIENT_CODE_TAKEN' });
       }
       throw err;
     }
@@ -121,7 +121,7 @@ router.put(
   asyncHandler(async (req, res) => {
     const { code, full_name, phone, address, comment, registration_date } = req.body;
     if (!full_name || !phone) {
-      return res.status(400).json({ error: 'full_name и phone обязательны' });
+      return res.status(400).json({ error: 'full_name и phone обязательны', code: 'CLIENT_NAME_PHONE_REQUIRED' });
     }
 
     // opening_balance_usd умышленно не редактируется здесь: задаётся один раз
@@ -141,12 +141,12 @@ router.put(
           req.params.id,
         ]
       );
-      if (result.affectedRows === 0) return res.status(404).json({ error: 'Получатель не найден' });
+      if (result.affectedRows === 0) return res.status(404).json({ error: 'Получатель не найден', code: 'CLIENT_NOT_FOUND' });
       const [rows] = await pool.query('SELECT * FROM clients WHERE id = ?', [req.params.id]);
       res.json(rows[0]);
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(409).json({ error: 'Код получателя уже используется' });
+        return res.status(409).json({ error: 'Код получателя уже используется', code: 'CLIENT_CODE_TAKEN' });
       }
       throw err;
     }
@@ -161,7 +161,7 @@ router.delete(
     const [result] = await pool.query('UPDATE clients SET status = 0 WHERE id = ? AND status = 1', [
       req.params.id,
     ]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Получатель не найден' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Получатель не найден', code: 'CLIENT_NOT_FOUND' });
     res.status(204).send();
   })
 );

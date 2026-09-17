@@ -75,7 +75,7 @@ router.get(
     const [rows] = await pool.query(`${SELECT_WITH_JOIN} WHERE c.id = ? AND c.status = 1`, [
       req.params.id,
     ]);
-    if (!rows[0]) return res.status(404).json({ error: 'Груз не найден' });
+    if (!rows[0]) return res.status(404).json({ error: 'Груз не найден', code: 'CARGO_NOT_FOUND' });
     res.json(rows[0]);
   })
 );
@@ -133,7 +133,7 @@ router.post(
       res.status(201).json(row);
     } catch (err) {
       if (err.code === 'ER_NO_REFERENCED_ROW_2') {
-        return res.status(400).json({ error: 'Рейс или получатель не найден' });
+        return res.status(400).json({ error: 'Рейс или получатель не найден', code: 'CARGO_SHIPMENT_OR_CLIENT_NOT_FOUND' });
       }
       throw err;
     }
@@ -150,7 +150,7 @@ router.put(
       req.body;
 
     if (!client_id || weight_kg == null || volume_m3 == null || places == null || rate == null) {
-      return res.status(400).json({ error: 'client_id, weight_kg, volume_m3, places и rate обязательны' });
+      return res.status(400).json({ error: 'client_id, weight_kg, volume_m3, places и rate обязательны', code: 'CARGO_FIELDS_REQUIRED' });
     }
     if (weight_kg <= 0 || volume_m3 <= 0 || rate <= 0 || !Number.isInteger(Number(places)) || places <= 0) {
       return res
@@ -194,11 +194,11 @@ router.put(
         const [rows] = await conn.query(`${SELECT_WITH_JOIN} WHERE c.id = ?`, [req.params.id]);
         return rows[0];
       });
-      if (!row) return res.status(404).json({ error: 'Груз не найден' });
+      if (!row) return res.status(404).json({ error: 'Груз не найден', code: 'CARGO_NOT_FOUND' });
       res.json(row);
     } catch (err) {
       if (err.code === 'ER_NO_REFERENCED_ROW_2') {
-        return res.status(400).json({ error: 'Получатель не найден' });
+        return res.status(400).json({ error: 'Получатель не найден', code: 'CLIENT_NOT_FOUND' });
       }
       throw err;
     }
@@ -213,7 +213,7 @@ router.delete(
     const [result] = await pool.query('UPDATE cargo SET status = 0 WHERE id = ? AND status = 1', [
       req.params.id,
     ]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Груз не найден' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Груз не найден', code: 'CARGO_NOT_FOUND' });
     res.status(204).send();
   })
 );

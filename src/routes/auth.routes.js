@@ -12,7 +12,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
-      return res.status(400).json({ error: 'username и password обязательны' });
+      return res.status(400).json({ error: 'username и password обязательны', code: 'LOGIN_CREDENTIALS_REQUIRED' });
     }
 
     const [rows] = await pool.query(
@@ -21,7 +21,7 @@ router.post(
     );
     const user = rows[0];
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-      return res.status(401).json({ error: 'Неверный логин или пароль' });
+      return res.status(401).json({ error: 'Неверный логин или пароль', code: 'INVALID_CREDENTIALS' });
     }
 
     const token = jwt.sign(

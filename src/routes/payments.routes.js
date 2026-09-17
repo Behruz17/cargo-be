@@ -28,13 +28,17 @@ const SELECT_LIST = SELECT_WITH_JOIN.replace('p.*,', 'p.*, COUNT(*) OVER() AS to
 function validatePaymentBody(body) {
   const { client_id, payment_date, amount, currency, exchange_rate, office } = body;
   if (!client_id || !payment_date || amount == null || !currency || !office) {
-    return 'client_id, payment_date, amount, currency и office обязательны';
+    return { message: 'client_id, payment_date, amount, currency и office обязательны', code: 'PAYMENT_FIELDS_REQUIRED' };
   }
-  if (Number(amount) <= 0) return 'amount должен быть положительным';
-  if (!CURRENCIES.includes(currency)) return `currency должен быть одним из: ${CURRENCIES.join(', ')}`;
-  if (!OFFICES.includes(office)) return `office должен быть одним из: ${OFFICES.join(', ')}`;
+  if (Number(amount) <= 0) return { message: 'amount должен быть положительным', code: 'AMOUNT_MUST_BE_POSITIVE' };
+  if (!CURRENCIES.includes(currency)) {
+    return { message: `currency должен быть одним из: ${CURRENCIES.join(', ')}`, code: 'CURRENCY_INVALID' };
+  }
+  if (!OFFICES.includes(office)) {
+    return { message: `office должен быть одним из: ${OFFICES.join(', ')}`, code: 'OFFICE_INVALID' };
+  }
   if (currency === 'TJS' && !(Number(exchange_rate) > 0)) {
-    return 'exchange_rate обязателен и должен быть положительным для TJS';
+    return { message: 'exchange_rate обязателен и должен быть положительным для TJS', code: 'EXCHANGE_RATE_REQUIRED' };
   }
   return null;
 }
@@ -69,7 +73,7 @@ router.get(
     const [rows] = await pool.query(`${SELECT_WITH_JOIN} WHERE p.id = ? AND p.status = 1`, [
       req.params.id,
     ]);
-    if (!rows[0]) return res.status(404).json({ error: 'Платёж не найден' });
+    if (!rows[0]) return res.status(404).json({ error: 'Платёж не найден', code: 'PAYMENT_NOT_FOUND' });
     res.json(rows[0]);
   })
 );
@@ -80,7 +84,7 @@ router.post(
   requireRole('admin', 'manager'),
   asyncHandler(async (req, res) => {
     const error = validatePaymentBody(req.body);
-    if (error) return res.status(400).json({ error });
+    if (error) return res.status(400).json({ error: error.message, code: error.code });
 
     const { client_id, cargo_id, office, payment_date, amount, currency, comment } = req.body;
     const exchangeRate = currency === 'USD' ? 1 : Number(req.body.exchange_rate);
@@ -111,7 +115,7 @@ router.post(
       res.status(201).json(row);
     } catch (err) {
       if (err.code === 'ER_NO_REFERENCED_ROW_2') {
-        return res.status(400).json({ error: 'Получатель или груз не найден' });
+        return res.status(400).json({ error: 'Получатель или груз не найден', code: 'PAYMENT_CLIENT_OR_CARGO_NOT_FOUND' });
       }
       throw err;
     }
@@ -124,7 +128,7 @@ router.put(
   requireRole('admin'),
   asyncHandler(async (req, res) => {
     const error = validatePaymentBody(req.body);
-    if (error) return res.status(400).json({ error });
+    if (error) return res.status(400).json({ error: error.message, code: error.code });
 
     const { client_id, cargo_id, office, payment_date, amount, currency, comment } = req.body;
     const exchangeRate = currency === 'USD' ? 1 : Number(req.body.exchange_rate);
@@ -143,11 +147,11 @@ router.put(
         const [rows] = await conn.query(`${SELECT_WITH_JOIN} WHERE p.id = ?`, [req.params.id]);
         return rows[0];
       });
-      if (!row) return res.status(404).json({ error: 'Платёж не найден' });
+      if (!row) return res.status(404).json({ error: 'Платёж не найден', code: 'PAYMENT_NOT_FOUND' });
       res.json(row);
     } catch (err) {
       if (err.code === 'ER_NO_REFERENCED_ROW_2') {
-        return res.status(400).json({ error: 'Получатель или груз не найден' });
+        return res.status(400).json({ error: 'Получатель или груз не найден', code: 'PAYMENT_CLIENT_OR_CARGO_NOT_FOUND' });
       }
       throw err;
     }
@@ -162,7 +166,7 @@ router.delete(
     const [result] = await pool.query('UPDATE payments SET status = 0 WHERE id = ? AND status = 1', [
       req.params.id,
     ]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Платёж не найден' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Платёж не найден', code: 'PAYMENT_NOT_FOUND' });
     res.status(204).send();
   })
 );

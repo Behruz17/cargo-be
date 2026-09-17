@@ -23,7 +23,7 @@ router.post(
   requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { name } = req.body;
-    if (!name) return res.status(400).json({ error: 'name обязателен' });
+    if (!name) return res.status(400).json({ error: 'name обязателен', code: 'NAME_REQUIRED' });
 
     try {
       const [result] = await pool.query('INSERT INTO expense_types (name) VALUES (?)', [name]);
@@ -31,7 +31,7 @@ router.post(
       res.status(201).json(rows[0]);
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(409).json({ error: 'Такой тип расхода уже существует' });
+        return res.status(409).json({ error: 'Такой тип расхода уже существует', code: 'EXPENSE_TYPE_EXISTS' });
       }
       throw err;
     }
@@ -44,19 +44,19 @@ router.put(
   requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { name } = req.body;
-    if (!name) return res.status(400).json({ error: 'name обязателен' });
+    if (!name) return res.status(400).json({ error: 'name обязателен', code: 'NAME_REQUIRED' });
 
     try {
       const [result] = await pool.query(
         'UPDATE expense_types SET name = ? WHERE id = ? AND status = 1',
         [name, req.params.id]
       );
-      if (result.affectedRows === 0) return res.status(404).json({ error: 'Тип расхода не найден' });
+      if (result.affectedRows === 0) return res.status(404).json({ error: 'Тип расхода не найден', code: 'EXPENSE_TYPE_NOT_FOUND' });
       const [rows] = await pool.query('SELECT * FROM expense_types WHERE id = ?', [req.params.id]);
       res.json(rows[0]);
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(409).json({ error: 'Такой тип расхода уже существует' });
+        return res.status(409).json({ error: 'Такой тип расхода уже существует', code: 'EXPENSE_TYPE_EXISTS' });
       }
       throw err;
     }
@@ -72,7 +72,7 @@ router.delete(
       'UPDATE expense_types SET status = 0 WHERE id = ? AND status = 1',
       [req.params.id]
     );
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Тип расхода не найден' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Тип расхода не найден', code: 'EXPENSE_TYPE_NOT_FOUND' });
     res.status(204).send();
   })
 );

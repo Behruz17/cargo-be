@@ -42,7 +42,7 @@ router.get(
     const [rows] = await pool.query('SELECT * FROM warehouses WHERE id = ? AND status = 1', [
       req.params.id,
     ]);
-    if (!rows[0]) return res.status(404).json({ error: 'Склад не найден' });
+    if (!rows[0]) return res.status(404).json({ error: 'Склад не найден', code: 'WAREHOUSE_NOT_FOUND' });
     res.json(rows[0]);
   })
 );
@@ -53,7 +53,7 @@ router.post(
   requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { name, address, contact_person, phone, comment } = req.body;
-    if (!name) return res.status(400).json({ error: 'name обязателен' });
+    if (!name) return res.status(400).json({ error: 'name обязателен', code: 'NAME_REQUIRED' });
 
     const [result] = await pool.query(
       'INSERT INTO warehouses (name, address, contact_person, phone, comment) VALUES (?, ?, ?, ?, ?)',
@@ -75,7 +75,7 @@ router.put(
        WHERE id = ? AND status = 1`,
       [name, address ?? null, contact_person ?? null, phone ?? null, comment ?? null, req.params.id]
     );
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Склад не найден' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Склад не найден', code: 'WAREHOUSE_NOT_FOUND' });
     const [rows] = await pool.query('SELECT * FROM warehouses WHERE id = ?', [req.params.id]);
     res.json(rows[0]);
   })
@@ -89,7 +89,7 @@ router.delete(
     const [result] = await pool.query('UPDATE warehouses SET status = 0 WHERE id = ? AND status = 1', [
       req.params.id,
     ]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Склад не найден' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Склад не найден', code: 'WAREHOUSE_NOT_FOUND' });
     res.status(204).send();
   })
 );

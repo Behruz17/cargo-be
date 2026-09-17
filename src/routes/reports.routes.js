@@ -13,7 +13,7 @@ router.get(
   '/clients/:id',
   asyncHandler(async (req, res) => {
     const report = await reports.getClientReport(req.params.id);
-    if (!report) return res.status(404).json({ error: 'Получатель не найден' });
+    if (!report) return res.status(404).json({ error: 'Получатель не найден', code: 'CLIENT_NOT_FOUND' });
 
     if (req.query.format === 'xlsx') {
       return sendExcel(res, `client-${report.client.code}.xlsx`, [
@@ -57,7 +57,7 @@ router.get(
   '/shipments/:id',
   asyncHandler(async (req, res) => {
     const report = await reports.getShipmentReport(req.params.id);
-    if (!report) return res.status(404).json({ error: 'Рейс не найден' });
+    if (!report) return res.status(404).json({ error: 'Рейс не найден', code: 'SHIPMENT_NOT_FOUND' });
 
     if (req.query.format === 'xlsx') {
       return sendExcel(res, `shipment-${report.shipment.shipment_number}.xlsx`, [
@@ -106,7 +106,7 @@ router.get(
   '/warehouses/:id',
   asyncHandler(async (req, res) => {
     const report = await reports.getWarehouseReport(req.params.id);
-    if (!report) return res.status(404).json({ error: 'Склад не найден' });
+    if (!report) return res.status(404).json({ error: 'Склад не найден', code: 'WAREHOUSE_NOT_FOUND' });
 
     if (req.query.format === 'xlsx') {
       return sendExcel(res, `warehouse-${report.warehouse.id}.xlsx`, [
@@ -133,7 +133,7 @@ router.get(
   '/period',
   asyncHandler(async (req, res) => {
     const { from, to } = req.query;
-    if (!from || !to) return res.status(400).json({ error: 'from и to обязательны (YYYY-MM-DD)' });
+    if (!from || !to) return res.status(400).json({ error: 'from и to обязательны (YYYY-MM-DD)', code: 'FROM_TO_REQUIRED' });
 
     const report = await reports.getPeriodReport(from, to);
 
@@ -172,7 +172,7 @@ router.get(
   '/profit',
   asyncHandler(async (req, res) => {
     const { from, to } = req.query;
-    if (!from || !to) return res.status(400).json({ error: 'from и to обязательны (YYYY-MM-DD)' });
+    if (!from || !to) return res.status(400).json({ error: 'from и to обязательны (YYYY-MM-DD)', code: 'FROM_TO_REQUIRED' });
     res.json(await reports.getPeriodReport(from, to));
   })
 );
@@ -235,7 +235,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const { from, to } = req.query;
     if ((from && !to) || (!from && to)) {
-      return res.status(400).json({ error: 'from и to должны передаваться вместе' });
+      return res.status(400).json({ error: 'from и to должны передаваться вместе', code: 'FROM_TO_TOGETHER' });
     }
 
     const report = await reports.getOfficesReport({ from, to });

@@ -14,7 +14,7 @@ router.get(
   requireRole('admin', 'manager'),
   asyncHandler(async (req, res) => {
     const q = (req.query.q || '').trim();
-    if (!q) return res.status(400).json({ error: 'q обязателен' });
+    if (!q) return res.status(400).json({ error: 'q обязателен', code: 'SEARCH_QUERY_REQUIRED' });
 
     const like = `%${q}%`;
 

@@ -29,13 +29,17 @@ const SELECT_LIST = SELECT_WITH_JOIN.replace('e.*,', 'e.*, COUNT(*) OVER() AS to
 function validateExpenseBody(body) {
   const { expense_type_id, amount, currency, exchange_rate, office } = body;
   if (!expense_type_id || amount == null || !currency || !office) {
-    return 'expense_type_id, amount, currency и office обязательны';
+    return { message: 'expense_type_id, amount, currency и office обязательны', code: 'EXPENSE_FIELDS_REQUIRED' };
   }
-  if (Number(amount) <= 0) return 'amount должен быть положительным';
-  if (!CURRENCIES.includes(currency)) return `currency должен быть одним из: ${CURRENCIES.join(', ')}`;
-  if (!OFFICES.includes(office)) return `office должен быть одним из: ${OFFICES.join(', ')}`;
+  if (Number(amount) <= 0) return { message: 'amount должен быть положительным', code: 'AMOUNT_MUST_BE_POSITIVE' };
+  if (!CURRENCIES.includes(currency)) {
+    return { message: `currency должен быть одним из: ${CURRENCIES.join(', ')}`, code: 'CURRENCY_INVALID' };
+  }
+  if (!OFFICES.includes(office)) {
+    return { message: `office должен быть одним из: ${OFFICES.join(', ')}`, code: 'OFFICE_INVALID' };
+  }
   if (currency === 'TJS' && !(Number(exchange_rate) > 0)) {
-    return 'exchange_rate обязателен и должен быть положительным для TJS';
+    return { message: 'exchange_rate обязателен и должен быть положительным для TJS', code: 'EXCHANGE_RATE_REQUIRED' };
   }
   return null;
 }
@@ -72,7 +76,7 @@ router.get(
     const [rows] = await pool.query(`${SELECT_WITH_JOIN} WHERE e.id = ? AND e.status = 1`, [
       req.params.id,
     ]);
-    if (!rows[0]) return res.status(404).json({ error: 'Расход не найден' });
+    if (!rows[0]) return res.status(404).json({ error: 'Расход не найден', code: 'EXPENSE_NOT_FOUND' });
     res.json(rows[0]);
   })
 );
@@ -83,7 +87,7 @@ router.post(
   requireRole('admin'),
   asyncHandler(async (req, res) => {
     const error = validateExpenseBody(req.body);
-    if (error) return res.status(400).json({ error });
+    if (error) return res.status(400).json({ error: error.message, code: error.code });
 
     const { shipment_id, office, expense_type_id, amount, currency, comment } = req.body;
     const exchangeRate = currency === 'USD' ? 1 : Number(req.body.exchange_rate);
@@ -113,7 +117,7 @@ router.post(
       res.status(201).json(row);
     } catch (err) {
       if (err.code === 'ER_NO_REFERENCED_ROW_2') {
-        return res.status(400).json({ error: 'Рейс или тип расхода не найден' });
+        return res.status(400).json({ error: 'Рейс или тип расхода не найден', code: 'EXPENSE_SHIPMENT_OR_TYPE_NOT_FOUND' });
       }
       throw err;
     }
@@ -126,7 +130,7 @@ router.put(
   requireRole('admin'),
   asyncHandler(async (req, res) => {
     const error = validateExpenseBody(req.body);
-    if (error) return res.status(400).json({ error });
+    if (error) return res.status(400).json({ error: error.message, code: error.code });
 
     const { shipment_id, office, expense_type_id, amount, currency, comment } = req.body;
     const exchangeRate = currency === 'USD' ? 1 : Number(req.body.exchange_rate);
@@ -145,11 +149,11 @@ router.put(
         const [rows] = await conn.query(`${SELECT_WITH_JOIN} WHERE e.id = ?`, [req.params.id]);
         return rows[0];
       });
-      if (!row) return res.status(404).json({ error: 'Расход не найден' });
+      if (!row) return res.status(404).json({ error: 'Расход не найден', code: 'EXPENSE_NOT_FOUND' });
       res.json(row);
     } catch (err) {
       if (err.code === 'ER_NO_REFERENCED_ROW_2') {
-        return res.status(400).json({ error: 'Рейс или тип расхода не найден' });
+        return res.status(400).json({ error: 'Рейс или тип расхода не найден', code: 'EXPENSE_SHIPMENT_OR_TYPE_NOT_FOUND' });
       }
       throw err;
     }
@@ -164,7 +168,7 @@ router.delete(
     const [result] = await pool.query('UPDATE expenses SET status = 0 WHERE id = ? AND status = 1', [
       req.params.id,
     ]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Расход не найден' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Расход не найден', code: 'EXPENSE_NOT_FOUND' });
     res.status(204).send();
   })
 );

@@ -27,3 +27,12 @@
 
 7. **`shipments.status` (стадия рейса) и `shipments.is_active` (soft-delete)
    — разные поля.** Не путать и не объединять.
+
+8. **Любой error-ответ (`res.status(4xx/5xx).json({ error: ... })`)
+   обязан включать поле `code`** (`SCREAMING_SNAKE_CASE`, например
+   `WAREHOUSE_NOT_FOUND`), в дополнение к существующему `error`
+   (человекочитаемое сообщение на русском — остаётся как лог/фоллбек,
+   не убирать). Это нужно, чтобы фронт мог перевести ошибку на китайский
+   через `errors:<code>` — см. `cargo-app/RULES.md`, п. 11. Новый код
+   сразу добавляется в оба JSON фронта:
+   `cargo-app/src/i18n/locales/{ru,zh}/errors.json`.

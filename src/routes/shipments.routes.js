@@ -97,7 +97,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const sql = `${SELECT_WITH_AGGREGATES} WHERE s.id = ? AND s.is_active = 1`;
     const [rows] = await pool.query(sql, [req.params.id]);
-    if (!rows[0]) return res.status(404).json({ error: 'Рейс не найден' });
+    if (!rows[0]) return res.status(404).json({ error: 'Рейс не найден', code: 'SHIPMENT_NOT_FOUND' });
     res.json(rows[0]);
   })
 );
@@ -152,10 +152,10 @@ router.post(
       res.status(201).json(rows[0]);
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(409).json({ error: 'Номер рейса уже используется' });
+        return res.status(409).json({ error: 'Номер рейса уже используется', code: 'SHIPMENT_NUMBER_TAKEN' });
       }
       if (err.code === 'ER_NO_REFERENCED_ROW_2') {
-        return res.status(400).json({ error: 'Указанный склад не найден' });
+        return res.status(400).json({ error: 'Указанный склад не найден', code: 'WAREHOUSE_NOT_FOUND' });
       }
       throw err;
     }
@@ -208,15 +208,15 @@ router.put(
           req.params.id,
         ]
       );
-      if (result.affectedRows === 0) return res.status(404).json({ error: 'Рейс не найден' });
+      if (result.affectedRows === 0) return res.status(404).json({ error: 'Рейс не найден', code: 'SHIPMENT_NOT_FOUND' });
       const [rows] = await pool.query(`${SELECT_WITH_AGGREGATES} WHERE s.id = ?`, [req.params.id]);
       res.json(rows[0]);
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(409).json({ error: 'Номер рейса уже используется' });
+        return res.status(409).json({ error: 'Номер рейса уже используется', code: 'SHIPMENT_NUMBER_TAKEN' });
       }
       if (err.code === 'ER_NO_REFERENCED_ROW_2') {
-        return res.status(400).json({ error: 'Указанный склад не найден' });
+        return res.status(400).json({ error: 'Указанный склад не найден', code: 'WAREHOUSE_NOT_FOUND' });
       }
       throw err;
     }
@@ -231,14 +231,16 @@ router.patch(
   asyncHandler(async (req, res) => {
     const { status } = req.body;
     if (!ALLOWED_STATUSES.includes(status)) {
-      return res.status(400).json({ error: `status должен быть одним из: ${ALLOWED_STATUSES.join(', ')}` });
+      return res
+        .status(400)
+        .json({ error: `status должен быть одним из: ${ALLOWED_STATUSES.join(', ')}`, code: 'SHIPMENT_STATUS_INVALID' });
     }
 
     const [result] = await pool.query(
       'UPDATE shipments SET status = ? WHERE id = ? AND is_active = 1',
       [status, req.params.id]
     );
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Рейс не найден' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Рейс не найден', code: 'SHIPMENT_NOT_FOUND' });
     const [rows] = await pool.query(`${SELECT_WITH_AGGREGATES} WHERE s.id = ?`, [req.params.id]);
     res.json(rows[0]);
   })
@@ -253,7 +255,7 @@ router.delete(
       'UPDATE shipments SET is_active = 0 WHERE id = ? AND is_active = 1',
       [req.params.id]
     );
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Рейс не найден' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Рейс не найден', code: 'SHIPMENT_NOT_FOUND' });
     res.status(204).send();
   })
 );
